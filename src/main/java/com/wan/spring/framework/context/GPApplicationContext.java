@@ -52,7 +52,7 @@ public class GPApplicationContext {
         }
     }
     //Bean的实例化，DI是从而这个方法开始的
-    private Object getBean(String beanName) {
+    public Object getBean(String beanName) {
         //1.先拿到GPBeanDefinition
         GPBeanDefinition gpBeanDefinition = beanDefinitionMap.get(beanName);
         //2.反射实例化对象
@@ -134,5 +134,9 @@ public class GPApplicationContext {
             beanDefinitionMap.put(beanDefinition.getFactoryBeanName(),beanDefinition);
             beanDefinitionMap.put(beanDefinition.getBenaClassName(),beanDefinition);
         }
+    }
+
+    public String[] getBeanDefinitionNames() {
+        return beanDefinitionMap.keySet().toArray(new String[beanDefinitionMap.size()]);
     }
 }
