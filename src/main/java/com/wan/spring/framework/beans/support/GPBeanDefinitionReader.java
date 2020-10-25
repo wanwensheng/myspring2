@@ -32,6 +32,7 @@ public class GPBeanDefinitionReader {
         for(String className:regitryBeanClasses){
             try {
                 Class<?> aClass = this.getClass().getClassLoader().loadClass(className);
+                if(aClass.isInterface()){continue;}
                 String name = aClass.getName();
                 String simpleName = aClass.getSimpleName();
                 //保存类对应的ClassName（全类名）
@@ -74,7 +75,8 @@ public class GPBeanDefinitionReader {
     }
 
     private void doLoadConfig(String configLocation) {
-        InputStream resourceAsStream = this.getClass().getClassLoader().getResourceAsStream(configLocation.replaceAll("classpath",""));
+        System.out.println(this.getClass().getClassLoader().getResource(""));
+        InputStream resourceAsStream = this.getClass().getClassLoader().getResourceAsStream(configLocation.replaceAll("classpath:",""));
         try {
             properties.load(resourceAsStream);
         } catch (IOException e) {
@@ -88,5 +90,9 @@ public class GPBeanDefinitionReader {
 //        if(chars[0] > )
         chars[0] += 32;
         return String.valueOf(chars);
+    }
+
+    public Properties getConfig() {
+        return properties;
     }
 }

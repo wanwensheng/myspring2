@@ -11,6 +11,7 @@ import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 public class GPApplicationContext {
 
@@ -22,6 +23,7 @@ public class GPApplicationContext {
     private Map<String,Object> factoryBeanObjectCache = new HashMap<String,Object>();
 
     private Map<String,GPBeanWrapper> factoryBeanInstanceCache = new HashMap<String,GPBeanWrapper>();
+
 
 
     public GPApplicationContext(String ... configLocations) {
@@ -81,7 +83,7 @@ public class GPApplicationContext {
             return;
         }
         //把所有的包括private/public/protected/default字段全部找出来
-        for (Field field : wrapperClass.getFields()) {
+        for (Field field : wrapperClass.getDeclaredFields()) {
             if(!field.isAnnotationPresent(GPAutowired.class))continue;
             GPAutowired annotation = field.getAnnotation(GPAutowired.class);
 
@@ -128,7 +130,7 @@ public class GPApplicationContext {
     private void doRegistBeanDefinition(List<GPBeanDefinition> beanDefinitions) throws Exception {
         for (GPBeanDefinition beanDefinition : beanDefinitions) {
             String factoryBeanName = beanDefinition.getFactoryBeanName();
-            if(!this.beanDefinitionMap.containsKey(factoryBeanName)){
+            if(this.beanDefinitionMap.containsKey(factoryBeanName)){
                 throw new Exception("The " + beanDefinition.getFactoryBeanName() + "is exists");
             }
             beanDefinitionMap.put(beanDefinition.getFactoryBeanName(),beanDefinition);
@@ -138,5 +140,9 @@ public class GPApplicationContext {
 
     public String[] getBeanDefinitionNames() {
         return beanDefinitionMap.keySet().toArray(new String[beanDefinitionMap.size()]);
+    }
+
+    public Properties getConfig() {
+        return reader.getConfig();
     }
 }

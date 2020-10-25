@@ -9,10 +9,10 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Pattern;
 
 /**
@@ -27,6 +27,10 @@ public class GPDispatcherServlet extends HttpServlet {
 
     private List<GPHandlerMapping> handlerMappings = new ArrayList<GPHandlerMapping>();
 
+    private Map<GPHandlerMapping,GPHandlerAdapter> handlerAdapters = new HashMap<GPHandlerMapping, GPHandlerAdapter>();
+
+    private List<GPViewResoler> viewResolers = new ArrayList<GPViewResoler>();
+
     private GPApplicationContext context;
 
     @Override
@@ -36,7 +40,62 @@ public class GPDispatcherServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        super.doPost(req, resp);
+        try {
+            doDispath(req, resp);
+        } catch (Exception e) {
+            resp.getWriter().write("500 Exception ,Details\r\n" + Arrays.toString(e.getStackTrace()).replaceAll("\\[|\\]","").replaceAll(",\\s","\r\n"));
+        }
+    }
+
+    private void doDispath(HttpServletRequest req, HttpServletResponse resp) throws Exception {
+        //1.从req 获取requestURL 去匹配对应的 HandlerMapping
+        GPHandlerMapping handlerMapping =getHander(req);
+        if(handlerMapping==null) {
+            processDispachResult(req, resp, new GPModelAndView("404"));
+        }
+        //2.根据HandlerMapping  去获取对于的参数适配器HandlerAdapter
+        GPHandlerAdapter gpHandlerAdapter = this.getHanderAdapter(handlerMapping);
+
+        //3.真正调用方法，返回ModelAndView 存储了要传页面的上的值，和页面模板名称
+        GPModelAndView gpModelAndView =gpHandlerAdapter.handle(req,resp,handlerMapping);
+
+        //4.真正的页面输出
+        processDispachResult(req,resp,gpModelAndView);
+
+
+    }
+
+    private GPHandlerAdapter getHanderAdapter(GPHandlerMapping handlerMapping) {
+        if(this.handlerAdapters.isEmpty()){return null;}
+        GPHandlerAdapter gpHandlerAdapter = this.handlerAdapters.get(handlerMapping);
+        if(gpHandlerAdapter.supports(handlerMapping)){
+            return gpHandlerAdapter;
+        }
+        return null;
+    }
+
+    private void processDispachResult(HttpServletRequest req, HttpServletResponse resp, GPModelAndView modelAndView) throws Exception {
+        if(modelAndView==null){return;}
+        if(this.viewResolers.isEmpty()){return;}
+        for (GPViewResoler viewResoler : this.viewResolers) {
+           GPView view =  viewResoler.resoleViewName(modelAndView.getViewName());
+           view.render(req,resp,modelAndView.getModel());
+        }
+    }
+
+    private GPHandlerMapping getHander(HttpServletRequest req) {
+        if(this.handlerMappings.isEmpty()){return null;}
+        String requestURI = req.getRequestURI();
+        String contextPath = req.getContextPath();
+         requestURI = requestURI.replace(contextPath, "").replaceAll("/+", "/");
+        for (GPHandlerMapping handlerMapping : handlerMappings) {
+            if(handlerMapping.getPattern().matcher(requestURI).matches()){
+                return handlerMapping;
+            }
+            continue;
+        }
+
+        return null;
     }
 
     @Override
@@ -58,9 +117,30 @@ public class GPDispatcherServlet extends HttpServlet {
     }
 
     private void initViewResolvers(GPApplicationContext context) {
+        //拿到模板的存放目录
+        String templateRoot = context.getConfig().getProperty("templateRoot");
+        String templateRootPath = this.getClass().getClassLoader().getResource(templateRoot).getFile();
+        File templateRootDir = new File(templateRootPath);
+        File[] templates = templateRootDir.listFiles();
+        for(int i=0;i<templates.length;i++){
+            //这里主要是为了兼容多模板，所有模仿Spring用List保存
+            //在我写的代码中简化了，其实只有需要一个模板就可以搞定
+            //只是为了仿真，所有还是搞了一个list
+            this.viewResolers.add(new GPViewResoler(templateRoot));
+            break;
+        }
     }
 
     private void initHandlerAdapter(GPApplicationContext context) {
+        //把一个request 请求变成一个 handler,参数都是字符串，自动配到handler中的形参
+        //可想而知，他要拿到HandlerMapping才能干活
+        //就意味着，有几个HandlerMapping 就有几个HanderAdapter
+        for (GPHandlerMapping handlerMapping : handlerMappings) {
+            this.handlerAdapters.put(handlerMapping,new GPHandlerAdapter());
+        }
+
+
+
     }
 
     private void initHandlerMapping(GPApplicationContext context) {
